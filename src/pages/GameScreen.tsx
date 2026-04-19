@@ -22,9 +22,13 @@ export default function GameScreen() {
   // Grammar state
   const [grammarText, setGrammarText] = useState(level?.grammar || 'S -> a S b | e');
   const [cfg, setCfg] = useState<CFGGrammar>(() => parseCFGText(level?.grammar || 'S -> a S b | e'));
-  const [inputString, setInputString] = useState(level?.examples[1] || 'aabb');
-  const [inputDraft, setInputDraft] = useState(level?.examples[1] || 'aabb');
+  
+  const defaultInput = level?.id === 'custom' ? 'aabb' : (level?.examples[1] || level?.examples[0] || '');
+  const [inputString, setInputString] = useState(defaultInput);
+  const [inputDraft, setInputDraft] = useState(defaultInput);
   const [samples, setSamples] = useState<string[]>([]);
+  const [hasEditedInput, setHasEditedInput] = useState(false);
+  const [grammarError, setGrammarError] = useState<string | null>(null);
 
   // Simulation state
   const [path, setPath] = useState<SimAction[] | null>(null);
@@ -90,10 +94,35 @@ export default function GameScreen() {
   }, []);
 
   useEffect(() => {
-    const newCfg = parseCFGText(grammarText);
-    setCfg(newCfg);
-    setSamples(generateSamples(newCfg));
-  }, [grammarText]);
+    try {
+      const trimmed = grammarText.trim();
+      if (!trimmed) throw new Error("Grammar cannot be empty.");
+
+      const newCfg = parseCFGText(grammarText);
+      
+      if (newCfg.variables.size === 0) {
+        throw new Error("No valid rules found. Use format: S -> a S b | e");
+      }
+      if (!newCfg.rules[newCfg.startSymbol]) {
+        throw new Error(`Start symbol '${newCfg.startSymbol}' has no derivations.`);
+      }
+
+      setCfg(newCfg);
+      setGrammarError(null);
+      const newSamples = generateSamples(newCfg);
+      setSamples(newSamples);
+      
+      // Auto-update the "draft" input string when they are editing the custom grammar
+      if (level?.id === 'custom' && !hasEditedInput && newSamples.length > 0) {
+        // Find a non-empty string as a good default example
+        const suggested = newSamples.find((s) => s.length > 0) || newSamples[0] || '';
+        setInputDraft(suggested);
+      }
+    } catch (err: any) {
+      setGrammarError(err.message);
+      setSamples([]);
+    }
+  }, [grammarText, level?.id, hasEditedInput]);
 
   useEffect(() => {
     if (level) load(inputString, cfg);
@@ -256,8 +285,8 @@ export default function GameScreen() {
           background: 'var(--surface)',
           borderBottom: '1px solid var(--border)',
           display: 'flex',
-          gap: '10px',
-          alignItems: 'flex-start',
+          flexDirection: 'column',
+          gap: '8px',
           flexShrink: 0,
         }}>
           <textarea
@@ -265,13 +294,18 @@ export default function GameScreen() {
             onChange={(e) => setGrammarText(e.target.value)}
             rows={2}
             style={{
-              flex: 1, resize: 'none', padding: '7px 10px', fontSize: '12px',
-              borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+              width: '100%', resize: 'none', padding: '7px 10px', fontSize: '12px',
+              borderRadius: 'var(--radius-sm)', border: `1px solid ${grammarError ? 'var(--red)' : 'var(--border)'}`,
               outline: 'none', fontFamily: 'var(--font-mono)', color: 'var(--text)',
               background: 'var(--surface-2)',
             }}
             placeholder="S -> a S b | e"
           />
+          {grammarError && (
+            <div style={{ color: 'var(--red)', fontSize: '11px', fontWeight: 600 }}>
+              ⚠️ {grammarError}
+            </div>
+          )}
         </div>
       )}
 
@@ -290,7 +324,10 @@ export default function GameScreen() {
           <input
             type="text"
             value={inputDraft}
-            onChange={(e) => setInputDraft(e.target.value)}
+            onChange={(e) => {
+              setInputDraft(e.target.value);
+              setHasEditedInput(true);
+            }}
             onKeyDown={(e) => { if (e.key === 'Enter') handleLoad(); }}
             placeholder="Enter input string..."
             style={{
@@ -302,11 +339,15 @@ export default function GameScreen() {
           />
           <button
             onClick={handleLoad}
+            disabled={!!grammarError}
             style={{
               padding: '7px 18px', borderRadius: 'var(--radius-sm)',
-              background: 'var(--accent)', border: 'none', color: 'white',
-              fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: '13px', cursor: 'pointer',
-              boxShadow: 'var(--accent-glow)',
+              background: grammarError ? 'var(--surface-3)' : 'var(--accent)', 
+              border: 'none', color: grammarError ? 'var(--text-subtle)' : 'white',
+              fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: '13px', 
+              cursor: grammarError ? 'not-allowed' : 'pointer',
+              boxShadow: grammarError ? 'none' : 'var(--accent-glow)',
+              transition: 'all 0.2s ease',
             }}
           >
             Run
@@ -316,7 +357,12 @@ export default function GameScreen() {
             {(level.id !== 'custom' ? level.examples : samples).slice(0, 4).map((s) => (
               <button
                 key={s}
-                onClick={() => { setInputDraft(s); setInputString(s); load(s, cfg); }}
+                onClick={() => { 
+                  setInputDraft(s); 
+                  setInputString(s); 
+                  setHasEditedInput(true);
+                  load(s, cfg); 
+                }}
                 style={{
                   padding: '4px 10px', fontSize: '12px',
                   fontFamily: 'var(--font-mono)', fontWeight: 500,

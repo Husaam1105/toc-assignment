@@ -14,9 +14,9 @@ export default function PDADiagram({ activeState, startSymbol, currentAction }: 
   const H = 160;
 
   const states = [
-    { id: 'q0',      label: 'q0',    sub: 'start',  cx: 60,  cy: 80 },
-    { id: 'q1',      label: 'q1',    sub: 'loop',   cx: 155, cy: 80 },
-    { id: 'qaccept', label: 'q_acc', sub: 'accept', cx: 250, cy: 80 },
+    { id: 'q0',      label: 'q0',    sub: 'start',  cx: 60,  cy: 100 },
+    { id: 'q1',      label: 'q1',    sub: 'loop',   cx: 155, cy: 100 },
+    { id: 'qaccept', label: 'q_acc', sub: 'accept', cx: 250, cy: 100 },
   ];
   const r = 28;
 
@@ -94,49 +94,49 @@ export default function PDADiagram({ activeState, startSymbol, currentAction }: 
         </defs>
 
         {/* q0 → q1 */}
-        <line x1={60+r} y1={80} x2={155-r-2} y2={80}
+        <line x1={60+r} y1={100} x2={155-r-2} y2={100}
           stroke={activeEdge === 'start' ? 'var(--accent)' : 'var(--border-strong)'} 
           strokeWidth={activeEdge === 'start' ? "2.5" : "1.5"} markerEnd={activeEdge === 'start' ? 'url(#arrowhead-active)' : 'url(#arrowhead)'} 
           style={{ transition: 'all 0.3s ease' }} />
-        <text x={(60+155)/2} y={68} textAnchor="middle"
-          style={{ fontFamily: 'var(--font-mono)', fontSize: activeEdge === 'start' ? '12px' : '9px', fontWeight: activeEdge === 'start' ? 700 : 400, fill: activeEdge === 'start' ? 'var(--accent)' : 'var(--text-subtle)', transition: 'all 0.3s ease', transformOrigin: `${(60+155)/2}px 68px`, animation: activeEdge === 'start' ? 'popText 0.4s ease' : 'none' }}>
+        <text x={(60+155)/2} y={88} textAnchor="middle"
+          style={{ fontFamily: 'var(--font-mono)', fontSize: activeEdge === 'start' ? '12px' : '10px', fontWeight: activeEdge === 'start' ? 700 : 500, fill: activeEdge === 'start' ? 'var(--accent)' : 'var(--text-subtle)', transition: 'all 0.3s ease', transformOrigin: `${(60+155)/2}px 88px`, animation: activeEdge === 'start' ? 'popText 0.4s ease' : 'none' }}>
           {startLabel}
         </text>
 
         {/* Self-loop on q1 */}
-        <path d={`M${155-20},${80-r} C${155-50},${80-90} ${155+50},${80-90} ${155+20},${80-r}`}
+        <path d={`M${155-18},${100-r} C${155-50},${100-95} ${155+50},${100-95} ${155+18},${100-r}`}
           fill="none" stroke={activeEdge === 'loop' ? 'var(--accent)' : 'var(--border-strong)'} 
           strokeWidth={activeEdge === 'loop' ? "2.5" : "1.5"} markerEnd={activeEdge === 'loop' ? 'url(#arrowhead-active)' : 'url(#arrowhead)'} 
           style={{ transition: 'all 0.3s ease' }} />
-        <text x={155} y={5} textAnchor="middle"
-          style={{ fontFamily: 'var(--font-mono)', fontSize: activeEdge === 'loop' ? '12px' : '9px', fontWeight: activeEdge === 'loop' ? 700 : 400, fill: activeEdge === 'loop' ? 'var(--accent)' : 'var(--text-subtle)', transition: 'all 0.3s ease', transformOrigin: `155px 5px`, animation: activeEdge === 'loop' ? 'popText 0.4s ease' : 'none' }}>
+        <text x={155} y={15} textAnchor="middle"
+          style={{ fontFamily: 'var(--font-mono)', fontSize: activeEdge === 'loop' ? '12px' : '10px', fontWeight: activeEdge === 'loop' ? 700 : 500, fill: activeEdge === 'loop' ? 'var(--accent)' : 'var(--text-subtle)', transition: 'all 0.3s ease', transformOrigin: `155px 15px`, animation: activeEdge === 'loop' ? 'popText 0.4s ease' : 'none' }}>
           {loopLabel}
         </text>
 
         {/* q1 → q_acc */}
-        <line x1={155+r} y1={80} x2={250-r-2} y2={80}
+        <line x1={155+r} y1={100} x2={250-r-2} y2={100}
           stroke={activeEdge === 'accept' ? 'var(--accent)' : 'var(--border-strong)'} 
           strokeWidth={activeEdge === 'accept' ? "2.5" : "1.5"} markerEnd={activeEdge === 'accept' ? 'url(#arrowhead-active)' : 'url(#arrowhead)'} 
           style={{ transition: 'all 0.3s ease' }} />
-        <text x={(155+250)/2} y={68} textAnchor="middle"
-          style={{ fontFamily: 'var(--font-mono)', fontSize: activeEdge === 'accept' ? '12px' : '9px', fontWeight: activeEdge === 'accept' ? 700 : 400, fill: activeEdge === 'accept' ? 'var(--accent)' : 'var(--text-subtle)', transition: 'all 0.3s ease', transformOrigin: `${(155+250)/2}px 68px`, animation: activeEdge === 'accept' ? 'popText 0.4s ease' : 'none' }}>
+        <text x={(155+250)/2} y={88} textAnchor="middle"
+          style={{ fontFamily: 'var(--font-mono)', fontSize: activeEdge === 'accept' ? '12px' : '10px', fontWeight: activeEdge === 'accept' ? 700 : 500, fill: activeEdge === 'accept' ? 'var(--accent)' : 'var(--text-subtle)', transition: 'all 0.3s ease', transformOrigin: `${(155+250)/2}px 88px`, animation: activeEdge === 'accept' ? 'popText 0.4s ease' : 'none' }}>
           {acceptLabel}
         </text>
 
         {/* Animated Token representing the action */}
         {activeEdge && currentAction && (
-          <circle key={JSON.stringify(currentAction) + Math.random()} r="5" fill="var(--accent)" filter="url(#glow)">
+          <circle key={JSON.stringify(currentAction) + Math.random()} r="4" fill="var(--accent)" filter="url(#glow)">
             <animateMotion 
-              dur="0.6s" 
+              dur="0.5s" 
               repeatCount="1" 
               fill="freeze"
               path={
-                activeEdge === 'start' ? `M ${60+r} 80 L ${155-r-3} 80` :
-                activeEdge === 'accept' ? `M ${155+r} 80 L ${250-r-3} 80` :
-                `M${155-20},${80-r} C${155-50},${80-90} ${155+50},${80-90} ${155+20},${80-r}`
+                activeEdge === 'start' ? `M ${60+r} 100 L ${155-r-3} 100` :
+                activeEdge === 'accept' ? `M ${155+r} 100 L ${250-r-3} 100` :
+                `M${155-18},${100-r} C${155-50},${100-95} ${155+50},${100-95} ${155+18},${100-r}`
               }
             />
-            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0; 0.1; 0.9; 1" dur="0.6s" repeatCount="1" fill="freeze" />
+            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0; 0.1; 0.9; 1" dur="0.5s" repeatCount="1" fill="freeze" />
           </circle>
         )}
 
