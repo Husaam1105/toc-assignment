@@ -40,6 +40,7 @@ export default function GameScreen() {
   const [result, setResult] = useState<'accepted' | 'rejected' | null>(null);
   const [shaking, setShaking] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [isAmbiguous, setIsAmbiguous] = useState(false);
 
   const timerRef = useRef<number | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
@@ -86,8 +87,9 @@ export default function GameScreen() {
     setIsPlaying(false);
     setResult(null);
     setMistakes(0);
-    const p = solveString(grammar, str);
+    const { path: p, isAmbiguous: ambig } = solveString(grammar, str);
     setPath(p);
+    setIsAmbiguous(ambig);
     setCurrentStep(0);
     setLoaded(true);
     if (!p) setResult('rejected');
@@ -382,6 +384,29 @@ export default function GameScreen() {
             ))}
           </div>
         </div>
+
+        {/* Ambiguity Warning */}
+        {isAmbiguous && loaded && path && (
+          <div style={{ 
+            marginTop: '4px',
+            padding: '10px 16px', 
+            background: '#fffbeb', 
+            border: '1px solid #fcd34d', 
+            borderRadius: 'var(--radius-sm)', 
+            color: '#92400e', 
+            fontSize: '13px', 
+            lineHeight: 1.5,
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'flex-start'
+          }}>
+            <div style={{ fontSize: '16px', marginTop: '2px' }}>⚠️</div>
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: '2px' }}>AMBIGUOUS — This grammar accepts multiple derivations!</div>
+              <div><strong>Fix:</strong> Add precedence rules or restructure grammar to enforce a single parse tree for each string.</div>
+            </div>
+          </div>
+        )}
 
         {/* Center arena */}
         <div

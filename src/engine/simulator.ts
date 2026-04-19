@@ -5,16 +5,19 @@ interface StackItem {
   id: number;
 }
 
-export function solveString(cfg: CFGGrammar, inputStr: string): SimAction[] | null {
-  let solution: SimAction[] | null = null;
+export function solveString(cfg: CFGGrammar, inputStr: string): { path: SimAction[] | null, isAmbiguous: boolean } {
+  const solutions: SimAction[][] = [];
   let nodeIdCounter = 0;
+  let iterations = 0;
+  const MAX_ITERATIONS = 20000;
 
   function dfs(inIdx: number, stack: StackItem[], steps: SimAction[]): void {
-    if (solution) return;
-    if (steps.length > 1000) return; // Prevent infinite left-recursion freezing
+    if (solutions.length >= 2) return;
+    if (iterations++ > MAX_ITERATIONS) return;
+    if (steps.length > 1000) return; // Prevent infinite left-recursion
     if (stack.length === 0) {
       if (inIdx === inputStr.length) {
-        solution = [...steps, { type: 'accept' }];
+        solutions.push([...steps, { type: 'accept' }]);
       }
       return;
     }
@@ -53,7 +56,7 @@ export function solveString(cfg: CFGGrammar, inputStr: string): SimAction[] | nu
           ...steps,
           { type: 'expand', A: top.sym, rule: prod, targetId: top.id, nextIds },
         ]);
-        if (solution) return;
+        if (solutions.length >= 2) return;
       }
     }
   }
@@ -64,7 +67,10 @@ export function solveString(cfg: CFGGrammar, inputStr: string): SimAction[] | nu
     [{ type: 'setup', startObj: { sym: cfg.startSymbol, id: 0 } }]
   );
 
-  return solution;
+  return {
+    path: solutions.length > 0 ? solutions[0] : null,
+    isAmbiguous: solutions.length >= 2,
+  };
 }
 
 export function replayToStep(
