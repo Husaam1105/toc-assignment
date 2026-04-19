@@ -69,6 +69,40 @@ function makeCFG(
   };
 }
 
+export function validateCFG(cfg: CFGGrammar): string | null {
+  const generating = new Set<string>();
+  
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const v of cfg.variables) {
+      if (!generating.has(v)) {
+        if (!cfg.rules[v]) continue;
+        for (const prod of cfg.rules[v]) {
+          let allGen = true;
+          for (const sym of prod) {
+            if (sym !== 'e' && !cfg.terminals.has(sym) && !generating.has(sym)) {
+              allGen = false;
+              break;
+            }
+          }
+          if (allGen) {
+            generating.add(v);
+            changed = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  if (!generating.has(cfg.startSymbol)) {
+    return `Start symbol '${cfg.startSymbol}' can never derive a finite string (missing base cases).`;
+  }
+
+  return null;
+}
+
 export function buildPDATransitions(cfg: CFGGrammar) {
   const transitions = [];
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getLevelById } from '../engine/levels';
-import { parseCFGText } from '../engine/cfgParser';
+import { parseCFGText, validateCFG } from '../engine/cfgParser';
 import { solveString, replayToStep, generateSamples } from '../engine/simulator';
 import type { SimAction, GameMode, CFGGrammar } from '../engine/types';
 
@@ -107,17 +107,24 @@ export default function GameScreen() {
         throw new Error(`Start symbol '${newCfg.startSymbol}' has no derivations.`);
       }
 
+      const validationError = validateCFG(newCfg);
+      if (validationError) throw new Error(validationError);
+
       setCfg(newCfg);
       setGrammarError(null);
       const newSamples = generateSamples(newCfg);
       setSamples(newSamples);
       
+      let stringToRun = inputDraft;
       // Auto-update the "draft" input string when they are editing the custom grammar
       if (level?.id === 'custom' && !hasEditedInput && newSamples.length > 0) {
         // Find a non-empty string as a good default example
-        const suggested = newSamples.find((s) => s.length > 0) || newSamples[0] || '';
-        setInputDraft(suggested);
+        stringToRun = newSamples.find((s) => s.length > 0) || newSamples[0] || '';
+        setInputDraft(stringToRun);
       }
+      
+      setInputString(stringToRun);
+      load(stringToRun, newCfg);
     } catch (err: any) {
       setGrammarError(err.message);
       setSamples([]);

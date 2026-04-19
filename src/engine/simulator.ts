@@ -11,6 +11,7 @@ export function solveString(cfg: CFGGrammar, inputStr: string): SimAction[] | nu
 
   function dfs(inIdx: number, stack: StackItem[], steps: SimAction[]): void {
     if (solution) return;
+    if (steps.length > 1000) return; // Prevent infinite left-recursion freezing
     if (stack.length === 0) {
       if (inIdx === inputStr.length) {
         solution = [...steps, { type: 'accept' }];
