@@ -1,73 +1,55 @@
-# React + TypeScript + Vite
+# Parse Quest: CFG ↔ PDA Simulator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Parse Quest** is an interactive, educational simulator designed to visualize the mechanical equivalence between Context-Free Grammars (CFG) and Pushdown Automata (PDA). It demonstrates the top-down parsing process through a real-time stack, dynamic parse tree, and interactive state machine diagram.
 
-Currently, two official plugins are available:
+## 🚀 Key Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Interactive Parsing Modes**: 
+  - 🤖 **Auto Mode**: Watch the parser automatically derive the string step-by-step.
+  - 🕹️ **Manual Mode**: Test your knowledge by predicting the next grammar rule to apply.
+- **Real-time Visualizations**:
+  - **Dynamic Stack**: Tracks the symbols pushed and popped during the nondeterministic parsing process.
+  - **Live Parse Tree**: Animates the growth of the derivation tree as variables are expanded.
+  - **PDA State Machine**: A responsive diagram that highlights active states and transitions mapped to the current parsing action.
+- **Level System**:
+  - Pre-built educational levels (e.g., $a^nb^n$, Balanced Parentheses, Palindromes).
+  - **Custom Grammar Mode**: Input your own CFG rules and test any string.
+- **Premium UI/UX**: Modern, clean light-themed interface built for clarity and accessibility.
 
-## React Compiler
+## 🛠️ Built With
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **React 19** + **Vite**
+- **TypeScript** (Strict Type Safety)
+- **Vanilla CSS** (Custom Premium Design System)
 
-## Expanding the ESLint configuration
+## 🏗️ Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/Husaam1105/toc-assignment.git
+   cd toc-assignment/game
+   ```
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+3. **Run the development server**:
+   ```bash
+   npm run dev
+   ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 📚 Educational Context
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+This project implements the **Top-Down Parsing** algorithm to convert a CFG into an equivalent PDA. For any given CFG $G$, the parser builds a PDA that simulates a leftmost derivation of the input string, maintaining the yet-to-be-expanded variables on the stack.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 👤 Author
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+**Husaamuddin Ahmed**  
+S20240010147 | UG-2 CSE  
+**IIIT Sri City**  
+[GitHub Profile](https://github.com/Husaam1105)
+
+---
+*Developed as part of the Theory of Computation (TOC) coursework.*
