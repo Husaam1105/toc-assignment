@@ -1,0 +1,401 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { getLevelById } from '../engine/levels';
+import { parseCFGText } from '../engine/cfgParser';
+import { solveString, replayToStep, generateSamples } from '../engine/simulator';
+import type { SimAction, GameMode, CFGGrammar } from '../engine/types';
+
+import InputTape from '../components/InputTape';
+import StackDisplay from '../components/StackDisplay';
+import ParseTree from '../components/ParseTree';
+import PDADiagram from '../components/PDADiagram';
+import RuleCards from '../components/RuleCards';
+import StepExplainer from '../components/StepExplainer';
+import PlaybackControls from '../components/PlaybackControls';
+import ResultOverlay from '../components/ResultOverlay';
+
+export default function GameScreen() {
+  const { levelId } = useParams<{ levelId: string }>();
+  const navigate = useNavigate();
+  const level = getLevelById(levelId || '');
+
+  // Grammar state
+  const [grammarText, setGrammarText] = useState(level?.grammar || 'S -> a S b | e');
+  const [cfg, setCfg] = useState<CFGGrammar>(() => parseCFGText(level?.grammar || 'S -> a S b | e'));
+  const [inputString, setInputString] = useState(level?.examples[1] || 'aabb');
+  const [inputDraft, setInputDraft] = useState(level?.examples[1] || 'aabb');
+  const [samples, setSamples] = useState<string[]>([]);
+
+  // Simulation state
+  const [path, setPath] = useState<SimAction[] | null>(null);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [mode, setMode] = useState<GameMode>('auto');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [speed, setSpeed] = useState(700);
+  const [mistakes, setMistakes] = useState(0);
+  const [result, setResult] = useState<'accepted' | 'rejected' | null>(null);
+  const [shaking, setShaking] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const timerRef = useRef<number | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+
+  // Derived step state
+  const stepState = path && loaded
+    ? replayToStep(path, currentStep, inputString)
+    : { stack: [], treeRoot: null, inputIdx: 0 };
+
+  const currentAction = path && loaded ? path[currentStep] : null;
+
+  // PDA active state
+  const pdaState = (() => {
+    if (!currentAction) return null;
+    if (currentAction.type === 'setup') return 'q1';
+    if (currentAction.type === 'accept') return 'qaccept';
+    if (currentAction.type === 'match' && currentAction.sym === '$') return 'qaccept';
+    return 'q1';
+  })() as 'q0' | 'q1' | 'qaccept' | null;
+
+  // Active expand node id
+  const activeNodeId = currentAction?.type === 'expand' ? currentAction.targetId : undefined;
+
+  // Top of stack variable (for manual mode rule picking)
+  const topOfStack = (() => {
+    const s = stepState.stack;
+    if (!s.length) return null;
+    const top = s[s.length - 1];
+    const sym = typeof top === 'string' ? top : top.sym;
+    return cfg.variables.has(sym) ? sym : null;
+  })();
+
+  // Correct rule for this step (for manual mode validation)
+  const correctRule = (() => {
+    if (!path || !loaded) return null;
+    const nextAction = path[currentStep + 1];
+    if (nextAction?.type === 'expand') return nextAction.rule;
+    return null;
+  })();
+
+  // Load / solve
+  const load = useCallback((str: string, grammar: CFGGrammar) => {
+    stopTimer();
+    setIsPlaying(false);
+    setResult(null);
+    setMistakes(0);
+    const p = solveString(grammar, str);
+    setPath(p);
+    setCurrentStep(0);
+    setLoaded(true);
+    if (!p) setResult('rejected');
+  }, []);
+
+  useEffect(() => {
+    const newCfg = parseCFGText(grammarText);
+    setCfg(newCfg);
+    setSamples(generateSamples(newCfg));
+  }, [grammarText]);
+
+  useEffect(() => {
+    if (level) load(inputString, cfg);
+  }, []); // Only on mount
+
+  // Timer
+  function stopTimer() {
+    if (timerRef.current !== null) clearInterval(timerRef.current);
+    timerRef.current = null;
+  }
+
+  const goToStep = useCallback((idx: number) => {
+    if (!path) return;
+    if (idx < 0 || idx >= path.length) return;
+    setCurrentStep(idx);
+    if (path[idx].type === 'accept') {
+      setResult('accepted');
+      stopTimer();
+      setIsPlaying(false);
+    }
+  }, [path]);
+
+  const handlePlay = useCallback(() => {
+    if (!path) return;
+    if (isPlaying) {
+      stopTimer();
+      setIsPlaying(false);
+    } else {
+      setIsPlaying(true);
+      timerRef.current = window.setInterval(() => {
+        setCurrentStep((prev) => {
+          const next = prev + 1;
+          if (!path || next >= path.length) {
+            stopTimer();
+            setIsPlaying(false);
+            return prev;
+          }
+          if (path[next]?.type === 'accept') {
+            setResult('accepted');
+            stopTimer();
+            setIsPlaying(false);
+          }
+          return next;
+        });
+      }, speed);
+    }
+  }, [isPlaying, path, speed]);
+
+  // Keyboard nav
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).tagName === 'INPUT' ||
+          (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); goToStep(currentStep + 1); }
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); goToStep(currentStep - 1); }
+      if (e.key === ' ')          { e.preventDefault(); handlePlay(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [currentStep, goToStep, handlePlay]);
+
+  // Manual mode: rule pick
+  const handleRulePick = (rule: string[], isCorrect: boolean) => {
+    if (isCorrect) {
+      goToStep(currentStep + 1);
+    } else {
+      setMistakes((m) => m + 1);
+      setShaking(true);
+      setTimeout(() => setShaking(false), 450);
+    }
+  };
+
+  const handleReset = () => {
+    stopTimer();
+    setIsPlaying(false);
+    setResult(null);
+    setMistakes(0);
+    setCurrentStep(0);
+    setLoaded(false);
+    setTimeout(() => setLoaded(true), 10);
+  };
+
+  const handleLoad = () => {
+    setInputString(inputDraft);
+    load(inputDraft, cfg);
+  };
+
+  if (!level) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center' }}>
+        <p>Level not found.</p>
+        <button onClick={() => navigate('/')}>← Back</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
+      {/* Top Bar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '12px',
+        padding: '10px 20px',
+        background: 'var(--surface)',
+        borderBottom: '1px solid var(--border)',
+        flexShrink: 0,
+        boxShadow: 'var(--shadow-sm)',
+      }}>
+        <button
+          onClick={() => navigate('/')}
+          style={{
+            background: 'var(--surface-2)', border: '1px solid var(--border)', cursor: 'pointer',
+            fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)',
+            display: 'flex', alignItems: 'center', gap: '4px',
+            padding: '5px 10px', borderRadius: 'var(--radius-sm)', fontWeight: 600,
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-strong)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}
+        >
+          ← Back
+        </button>
+
+        <div style={{ width: '1px', height: '20px', background: 'var(--border)' }} />
+
+        <span style={{ fontSize: '20px' }}>{level.emoji}</span>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text)', lineHeight: 1.2 }}>{level.name}</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>{level.subtitle}</div>
+        </div>
+
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {mistakes > 0 && (
+            <span style={{
+              fontSize: '12px', padding: '4px 12px',
+              borderRadius: '100px',
+              background: 'var(--amber-light)',
+              border: '1px solid var(--amber-border)',
+              color: 'var(--amber)',
+              fontWeight: 700,
+            }}>
+              ⚡ {mistakes} mistake{mistakes !== 1 ? 's' : ''}
+            </span>
+          )}
+          {loaded && path && (
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: '11px',
+              color: 'var(--text-subtle)', padding: '4px 12px',
+              background: 'var(--surface-2)', border: '1px solid var(--border)',
+              borderRadius: '100px',
+            }}>
+              {currentStep + 1} / {path.length}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Custom Grammar Panel */}
+      {level.id === 'custom' && (
+        <div style={{
+          padding: '10px 20px',
+          background: 'var(--surface)',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'flex-start',
+          flexShrink: 0,
+        }}>
+          <textarea
+            value={grammarText}
+            onChange={(e) => setGrammarText(e.target.value)}
+            rows={2}
+            style={{
+              flex: 1, resize: 'none', padding: '7px 10px', fontSize: '12px',
+              borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+              outline: 'none', fontFamily: 'var(--font-mono)', color: 'var(--text)',
+              background: 'var(--surface-2)',
+            }}
+            placeholder="S -> a S b | e"
+          />
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '12px 16px', gap: '10px' }}>
+
+        {/* Input row */}
+        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <div style={{ flex: 1 }}>
+            <InputTape input={inputString} currentIdx={stepState.inputIdx} />
+          </div>
+        </div>
+
+        {/* Input string controls */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+          <input
+            type="text"
+            value={inputDraft}
+            onChange={(e) => setInputDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleLoad(); }}
+            placeholder="Enter input string..."
+            style={{
+              flex: 1, padding: '7px 12px', fontSize: '13px',
+              border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+              outline: 'none', fontFamily: 'var(--font-mono)', color: 'var(--text)',
+              background: 'var(--surface)',
+            }}
+          />
+          <button
+            onClick={handleLoad}
+            style={{
+              padding: '7px 18px', borderRadius: 'var(--radius-sm)',
+              background: 'var(--accent)', border: 'none', color: 'white',
+              fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: '13px', cursor: 'pointer',
+              boxShadow: 'var(--accent-glow)',
+            }}
+          >
+            Run
+          </button>
+          {/* Sample chips */}
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {(level.id !== 'custom' ? level.examples : samples).slice(0, 4).map((s) => (
+              <button
+                key={s}
+                onClick={() => { setInputDraft(s); setInputString(s); load(s, cfg); }}
+                style={{
+                  padding: '4px 10px', fontSize: '12px',
+                  fontFamily: 'var(--font-mono)', fontWeight: 500,
+                  border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--surface-2)', color: 'var(--text-muted)', cursor: 'pointer',
+                }}
+              >
+                {s || 'ε'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Center arena */}
+        <div
+          ref={boardRef}
+          className={shaking ? 'shake' : ''}
+          style={{ flex: 1, display: 'flex', gap: '10px', minHeight: 0 }}
+        >
+          {/* Left: Stack */}
+          <div style={{ width: '100px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+            <StackDisplay stack={stepState.stack} variables={cfg.variables} />
+          </div>
+
+          {/* Center: Parse Tree */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 }}>
+            <ParseTree treeRoot={stepState.treeRoot} grammar={cfg} activeId={activeNodeId} />
+          </div>
+
+          {/* Right: PDA + Step explainer */}
+          <div style={{ width: '320px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <PDADiagram activeState={pdaState} startSymbol={cfg.startSymbol} currentAction={currentAction} />
+            {currentAction && (
+              <StepExplainer
+                action={currentAction}
+                stepNum={currentStep + 1}
+                totalSteps={path?.length || 0}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Manual mode rule cards */}
+        {mode === 'manual' && loaded && path && (
+          <RuleCards
+            grammar={cfg}
+            topOfStack={topOfStack}
+            correctRule={correctRule}
+            mode={mode}
+            onRulePick={handleRulePick}
+            disabled={isPlaying || !!result}
+          />
+        )}
+
+        {/* Playback controls */}
+        <PlaybackControls
+          mode={mode}
+          onModeChange={(m) => { setMode(m); stopTimer(); setIsPlaying(false); }}
+          isPlaying={isPlaying}
+          onPlay={handlePlay}
+          onPrev={() => goToStep(currentStep - 1)}
+          onNext={() => goToStep(currentStep + 1)}
+          onReset={handleReset}
+          speed={speed}
+          onSpeedChange={(v) => { setSpeed(v); if (isPlaying) { stopTimer(); setIsPlaying(false); } }}
+          canPrev={currentStep > 0}
+          canNext={!!path && currentStep < path.length - 1}
+          hasPath={!!path && loaded}
+        />
+      </div>
+
+      {/* Result overlay */}
+      <ResultOverlay
+        result={result}
+        inputString={inputString}
+        stepCount={path?.length || 0}
+        mistakes={mistakes}
+        onReset={() => { setResult(null); handleReset(); }}
+      />
+    </div>
+  );
+}
