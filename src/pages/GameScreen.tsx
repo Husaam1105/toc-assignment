@@ -215,8 +215,9 @@ export default function GameScreen() {
   };
 
   const handleLoad = () => {
-    setInputString(inputDraft);
-    load(inputDraft, cfg);
+    const cleaned = inputDraft.replace(/\s+/g, '');
+    setInputString(cleaned);
+    load(cleaned, cfg);
   };
 
   if (!level) {
